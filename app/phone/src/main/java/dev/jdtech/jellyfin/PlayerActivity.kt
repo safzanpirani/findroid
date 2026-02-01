@@ -158,6 +158,7 @@ class PlayerActivity : BasePlayerActivity() {
                                 syncIndicator.isVisible = true
                                 val syncText = when {
                                     !syncTargetWatching -> getString(CoreR.string.sync_target_not_watching)
+                                    !syncWatchingSameContent -> "${getString(CoreR.string.sync_watching_different)}\n$syncNowPlaying"
                                     kotlin.math.abs(syncDiff) <= 3 -> getString(CoreR.string.sync_in_sync)
                                     syncDiff > 0 -> getString(CoreR.string.sync_ahead, syncDiff.toInt())
                                     else -> getString(CoreR.string.sync_behind, kotlin.math.abs(syncDiff).toInt())

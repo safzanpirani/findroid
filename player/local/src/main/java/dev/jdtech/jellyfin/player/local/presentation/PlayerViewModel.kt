@@ -89,6 +89,8 @@ constructor(
         val syncDiff: Float = 0f,
         val syncTargetWatching: Boolean = false,
         val syncNowPlaying: String = "",
+        val syncWatchingSameContent: Boolean = true,
+        val syncTargetItemId: String? = null,
     )
 
     private var items: MutableList<PlayerItem> = mutableListOf()
@@ -724,6 +726,12 @@ constructor(
                         player.currentPosition * 10_000
                     } else 0L
                     
+                    // Check if we're watching the same content
+                    val currentItemId = player.currentMediaItem?.mediaId?.let { 
+                        try { UUID.fromString(it) } catch (_: Exception) { null } 
+                    }
+                    val watchingSameContent = state.itemId != null && currentItemId == state.itemId
+                    
                     _uiState.update {
                         it.copy(
                             syncEnabled = syncEnabled,
@@ -731,6 +739,8 @@ constructor(
                             syncDiff = syncService.calculateSyncDiff(currentPos),
                             syncTargetWatching = state.isTargetWatching,
                             syncNowPlaying = state.nowPlaying,
+                            syncWatchingSameContent = watchingSameContent,
+                            syncTargetItemId = state.itemId?.toString(),
                         )
                     }
                 } catch (e: Exception) {

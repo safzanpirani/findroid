@@ -128,4 +128,13 @@
     <string name="sync_auto_pause">Auto-pause</string>
     <string name="sync_auto_pause_summary">Pause when target stops watching</string>
     <string name="sync_catch_up">Catch Up</string>
+
+    <!-- Sync Tab -->
+    <string name="sync_tab_title">Sync</string>
+    <string name="sync_no_active_sessions">No one is watching right now</string>
+    <string name="sync_active_sessions">Who\'s Watching</string>
+    <string name="sync_syncing_with">Syncing with %1$s</string>
+    <string name="sync_stop">Stop</string>
+    <string name="sync_join">Join</string>
+    <string name="sync_watching_different">Watching different content</string>
 </resources>

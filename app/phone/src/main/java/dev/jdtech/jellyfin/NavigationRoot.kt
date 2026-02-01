@@ -106,6 +106,8 @@ data class LibraryRoute(
 
 @Serializable data object AboutRoute
 
+@Serializable data object SyncRoute
+
 data class TabBarItem(
     @param:StringRes val title: Int,
     @param:DrawableRes val icon: Int,
@@ -127,6 +129,12 @@ val downloadsTab =
         icon = CoreR.drawable.ic_download,
         route = DownloadsRoute,
     )
+val syncTab =
+    TabBarItem(
+        title = CoreR.string.sync_tab_title,
+        icon = CoreR.drawable.ic_sync,
+        route = SyncRoute,
+    )
 
 @Composable
 fun NavigationRoot(
@@ -147,7 +155,7 @@ fun NavigationRoot(
 
     val navigationItems =
         when (isOfflineMode) {
-            false -> listOf(homeTab, mediaTab, downloadsTab)
+            false -> listOf(homeTab, mediaTab, syncTab, downloadsTab)
             true -> listOf(homeTab, downloadsTab)
         }
     val navigationItemClassNames = navigationItems.map { it.route::class.qualifiedName }
@@ -331,6 +339,9 @@ fun NavigationRoot(
                         navigateToItem(navController = navController, item = item)
                     }
                 )
+            }
+            composable<SyncRoute> {
+                dev.jdtech.jellyfin.presentation.sync.SyncScreen()
             }
             composable<LibraryRoute> { backStackEntry ->
                 val route: LibraryRoute = backStackEntry.toRoute()
