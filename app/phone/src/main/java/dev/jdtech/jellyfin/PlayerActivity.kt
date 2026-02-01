@@ -40,6 +40,7 @@ import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
 import dev.jdtech.jellyfin.presentation.player.SpeedSelectionDialogFragment
 import dev.jdtech.jellyfin.presentation.player.TrackSelectionDialogFragment
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
+import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.utils.PlayerGestureHelper
 import dev.jdtech.jellyfin.utils.PreviewScrubListener
 import java.util.UUID
@@ -131,6 +132,10 @@ class PlayerActivity : BasePlayerActivity() {
 
         val videoNameTextView = binding.playerView.findViewById<TextView>(R.id.video_name)
 
+        // JellySync indicator
+        val syncIndicator = binding.playerView.findViewById<View>(R.id.sync_indicator)
+        val syncStatusTextView = binding.playerView.findViewById<TextView>(R.id.sync_status)
+
         val audioButton = binding.playerView.findViewById<ImageButton>(R.id.btn_audio_track)
         val subtitleButton = binding.playerView.findViewById<ImageButton>(R.id.btn_subtitle)
         val speedButton = binding.playerView.findViewById<ImageButton>(R.id.btn_speed)
@@ -147,6 +152,20 @@ class PlayerActivity : BasePlayerActivity() {
                         uiState.apply {
                             // Title
                             videoNameTextView.text = currentItemTitle
+
+                            // JellySync indicator
+                            if (syncEnabled) {
+                                syncIndicator.isVisible = true
+                                val syncText = when {
+                                    !syncTargetWatching -> getString(CoreR.string.sync_target_not_watching)
+                                    kotlin.math.abs(syncDiff) <= 3 -> getString(CoreR.string.sync_in_sync)
+                                    syncDiff > 0 -> getString(CoreR.string.sync_ahead, syncDiff.toInt())
+                                    else -> getString(CoreR.string.sync_behind, kotlin.math.abs(syncDiff).toInt())
+                                }
+                                syncStatusTextView.text = syncText
+                            } else {
+                                syncIndicator.isVisible = false
+                            }
 
                             // Media segment
                             currentSegment?.let { segment ->

@@ -100,4 +100,18 @@
     <string name="media_segments_type_outro">Outro</string>
     <string name="media_segments_type_intro">Intro</string>
     <string name="none">None</string>
+
+    <!-- JellySync Settings -->
+    <string name="sync_settings_title">JellySync</string>
+    <string name="sync_settings_description">Sync playback with another user</string>
+    <string name="sync_enabled">Enable Sync</string>
+    <string name="sync_configuration">Configuration</string>
+    <string name="sync_target_user">Target User</string>
+    <string name="sync_target_user_summary">Username to sync with</string>
+    <string name="sync_threshold">Sync Threshold (seconds)</string>
+    <string name="sync_threshold_summary">Sync if difference exceeds this value</string>
+    <string name="sync_offset">Sync Offset (seconds)</string>
+    <string name="sync_offset_summary">Adjust your playback position</string>
+    <string name="sync_auto_pause">Auto-pause</string>
+    <string name="sync_auto_pause_summary">Pause when target user stops watching</string>
 </resources>

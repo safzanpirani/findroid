@@ -27,6 +27,7 @@ import dev.jdtech.jellyfin.settings.presentation.models.PreferenceIntInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceLongInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSelect
+import dev.jdtech.jellyfin.settings.presentation.models.PreferenceStringInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSwitch
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsAction
 
@@ -107,6 +108,14 @@ fun SettingsGroupCard(
                     is PreferenceAppLanguage ->
                         SettingsAppLanguageCard(
                             preference = preference,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    is PreferenceStringInput ->
+                        SettingsStringInputCard(
+                            preference = preference,
+                            onUpdate = { value ->
+                                onAction(SettingsAction.OnUpdate(preference.copy(value = value)))
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         )
                 }

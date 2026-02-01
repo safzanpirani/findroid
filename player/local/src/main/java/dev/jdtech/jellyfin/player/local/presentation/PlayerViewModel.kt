@@ -28,6 +28,8 @@ import dev.jdtech.jellyfin.player.local.mpv.MPVPlayer
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.settings.domain.Constants
+import dev.jdtech.jellyfin.sync.SyncEvent
+import dev.jdtech.jellyfin.sync.SyncService
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.ceil
@@ -54,6 +56,7 @@ constructor(
     private val repository: JellyfinRepository,
     private val appPreferences: AppPreferences,
     private val savedStateHandle: SavedStateHandle,
+    private val syncService: SyncService,
 ) : ViewModel(), Player.Listener {
     val player: Player
 
@@ -80,6 +83,12 @@ constructor(
         val currentTrickplay: Trickplay?,
         val currentChapters: List<PlayerChapter>,
         val fileLoaded: Boolean,
+        // JellySync state
+        val syncEnabled: Boolean = false,
+        val syncTargetUser: String = "",
+        val syncDiff: Float = 0f,
+        val syncTargetWatching: Boolean = false,
+        val syncNowPlaying: String = "",
     )
 
     private var items: MutableList<PlayerItem> = mutableListOf()
@@ -102,7 +111,22 @@ constructor(
 
     var isInPictureInPictureMode: Boolean = false
 
+    // JellySync - sync settings
+    private var syncEnabled: Boolean = false
+    private var syncTargetUser: String = ""
+    private var syncThreshold: Int = 3
+    private var syncOffset: Int = 0
+    private var syncAutoPause: Boolean = false
+    private var syncStarted: Boolean = false
+
     init {
+        // Load sync preferences (but don't start sync yet - wait for player to be ready)
+        syncEnabled = appPreferences.getValue(appPreferences.syncEnabled)
+        syncTargetUser = appPreferences.getValue(appPreferences.syncTargetUser) ?: ""
+        syncThreshold = appPreferences.getValue(appPreferences.syncThreshold)
+        syncOffset = appPreferences.getValue(appPreferences.syncOffset)
+        syncAutoPause = appPreferences.getValue(appPreferences.syncAutoPause)
+
         segmentsSkipButton = appPreferences.getValue(appPreferences.playerMediaSegmentsSkipButton)
         segmentsSkipButtonTypes =
             appPreferences.getValue(appPreferences.playerMediaSegmentsSkipButtonType)
@@ -212,6 +236,9 @@ constructor(
             player.setMediaItems(mediaItems, 0, startPosition)
             player.prepare()
             player.play()
+            
+            // Start JellySync after player is ready
+            startSyncIfEnabled()
         }
     }
 
@@ -448,12 +475,6 @@ constructor(
         Timber.d("Changed player state to $stateString")
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        Timber.d("Clearing Player ViewModel")
-        releasePlayer()
-    }
-
     fun switchToTrack(trackType: @C.TrackType Int, index: Int) {
         // Index -1 equals disable track
         if (index == -1) {
@@ -668,6 +689,185 @@ constructor(
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         super.onIsPlayingChanged(isPlaying)
         eventsChannel.trySend(PlayerEvents.IsPlayingChanged(isPlaying))
+    }
+
+    // ==================== JellySync Functions ====================
+
+    /**
+     * Start sync if enabled and not already started
+     */
+    private fun startSyncIfEnabled() {
+        if (syncStarted) return
+        if (!syncEnabled || syncTargetUser.isBlank()) return
+        
+        syncStarted = true
+        Timber.d("JellySync: Starting sync with target user: $syncTargetUser")
+        
+        syncService.configure(syncTargetUser, syncThreshold, syncOffset)
+        
+        viewModelScope.launch {
+            syncService.startSync()
+        }
+        
+        // Collect sync events
+        viewModelScope.launch {
+            syncService.syncEvents.collect { event ->
+                handleSyncEvent(event)
+            }
+        }
+        
+        // Collect sync state for UI
+        viewModelScope.launch {
+            syncService.syncState.collect { state ->
+                try {
+                    val currentPos = if (player.playbackState != Player.STATE_IDLE) {
+                        player.currentPosition * 10_000
+                    } else 0L
+                    
+                    _uiState.update {
+                        it.copy(
+                            syncEnabled = syncEnabled,
+                            syncTargetUser = state.targetUserName,
+                            syncDiff = syncService.calculateSyncDiff(currentPos),
+                            syncTargetWatching = state.isTargetWatching,
+                            syncNowPlaying = state.nowPlaying,
+                        )
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "JellySync: Error updating sync state")
+                }
+            }
+        }
+    }
+
+    /**
+     * Handle sync events from the SyncService
+     */
+    private fun handleSyncEvent(event: SyncEvent) {
+        // Safety check - don't process if player isn't ready
+        if (player.playbackState == Player.STATE_IDLE) return
+        
+        when (event) {
+            is SyncEvent.SyncPlayback -> {
+                try {
+                    // Only sync if we're playing the same item
+                    val currentItemId = player.currentMediaItem?.mediaId?.let { 
+                        try { UUID.fromString(it) } catch (_: Exception) { null } 
+                    }
+                    
+                    if (currentItemId == event.itemId) {
+                        // Calculate position in milliseconds
+                        val targetPositionMs = event.positionTicks / 10_000
+                        val currentPositionMs = player.currentPosition
+                        val diffMs = kotlin.math.abs(targetPositionMs - currentPositionMs)
+                        
+                        // Sync if difference exceeds threshold
+                        if (diffMs > syncThreshold * 1000) {
+                            Timber.d("JellySync: Seeking from ${currentPositionMs}ms to ${targetPositionMs}ms (diff: ${diffMs}ms)")
+                            player.seekTo(targetPositionMs)
+                        }
+                        
+                        // Sync pause state
+                        if (event.isPaused && player.isPlaying) {
+                            Timber.d("JellySync: Pausing playback")
+                            player.pause()
+                        } else if (!event.isPaused && !player.isPlaying && player.playbackState == Player.STATE_READY) {
+                            Timber.d("JellySync: Resuming playback")
+                            player.play()
+                        }
+                    }
+                    
+                    // Update sync diff in UI
+                    _uiState.update {
+                        it.copy(syncDiff = syncService.calculateSyncDiff(player.currentPosition * 10_000))
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "JellySync: Error handling sync playback event")
+                }
+            }
+            
+            is SyncEvent.EpisodeChanged -> {
+                Timber.d("JellySync: Episode changed to ${event.nowPlaying}")
+                // Could show a notification or auto-navigate
+                // For now, just update the UI state
+                _uiState.update {
+                    it.copy(syncNowPlaying = event.nowPlaying)
+                }
+            }
+            
+            is SyncEvent.TargetStoppedWatching -> {
+                Timber.d("JellySync: Target stopped watching")
+                if (syncAutoPause) {
+                    player.pause()
+                }
+                _uiState.update {
+                    it.copy(syncTargetWatching = false)
+                }
+            }
+        }
+    }
+
+    /**
+     * Manually catch up to the target user's position
+     */
+    fun catchUpToSync() {
+        val state = syncService.syncState.value
+        if (state.isTargetWatching && state.positionTicks > 0) {
+            val targetPositionMs = state.positionTicks / 10_000 + (syncOffset * 1000)
+            Timber.d("JellySync: Catching up to ${targetPositionMs}ms")
+            player.seekTo(targetPositionMs)
+        }
+    }
+
+    /**
+     * Toggle sync on/off
+     */
+    fun toggleSync(enabled: Boolean) {
+        syncEnabled = enabled
+        appPreferences.setValue(appPreferences.syncEnabled, enabled)
+        
+        if (enabled && syncTargetUser.isNotBlank()) {
+            syncService.configure(syncTargetUser, syncThreshold, syncOffset)
+            viewModelScope.launch {
+                syncService.startSync()
+            }
+        } else {
+            syncService.stopSync()
+        }
+        
+        _uiState.update { it.copy(syncEnabled = enabled) }
+    }
+
+    /**
+     * Set the sync target user
+     */
+    fun setSyncTargetUser(username: String) {
+        syncTargetUser = username
+        appPreferences.setValue(appPreferences.syncTargetUser, username)
+        
+        if (syncEnabled) {
+            syncService.stopSync()
+            syncService.configure(username, syncThreshold, syncOffset)
+            viewModelScope.launch {
+                syncService.startSync()
+            }
+        }
+    }
+
+    /**
+     * Set sync offset in seconds (-10 to +10)
+     */
+    fun setSyncOffset(offsetSeconds: Int) {
+        syncOffset = offsetSeconds.coerceIn(-10, 10)
+        appPreferences.setValue(appPreferences.syncOffset, syncOffset)
+        syncService.configure(syncTargetUser, syncThreshold, syncOffset)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        Timber.d("Clearing Player ViewModel")
+        syncService.stopSync()
+        releasePlayer()
     }
 }
 

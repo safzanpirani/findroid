@@ -9,5 +9,5 @@ object Versions {
     const val MIN_SDK = 28
     const val BUILD_TOOLS = "36.1.0"
 
-    val JAVA = JavaVersion.VERSION_21
+    val JAVA = JavaVersion.VERSION_23
 }

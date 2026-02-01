@@ -108,4 +108,24 @@
     <string name="download_paused">Paused</string>
     <string name="download_downloading">Downloading…</string>
     <string name="download_failed">Failed to download</string>
+
+    <!-- JellySync -->
+    <string name="sync_indicator">Sync indicator</string>
+    <string name="sync_in_sync">✓ In Sync</string>
+    <string name="sync_ahead">+%1$ds</string>
+    <string name="sync_behind">-%1$ds</string>
+    <string name="sync_target_not_watching">Target not watching</string>
+    <string name="sync_enabled">Sync enabled</string>
+    <string name="sync_disabled">Sync disabled</string>
+    <string name="sync_settings_title">JellySync</string>
+    <string name="sync_settings_description">Sync playback with another user</string>
+    <string name="sync_target_user">Target User</string>
+    <string name="sync_target_user_summary">Username to sync with</string>
+    <string name="sync_threshold">Sync Threshold</string>
+    <string name="sync_threshold_summary">Sync if difference exceeds %1$d seconds</string>
+    <string name="sync_offset">Sync Offset</string>
+    <string name="sync_offset_summary">Adjust your playback by %1$d seconds</string>
+    <string name="sync_auto_pause">Auto-pause</string>
+    <string name="sync_auto_pause_summary">Pause when target stops watching</string>
+    <string name="sync_catch_up">Catch Up</string>
 </resources>

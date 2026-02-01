@@ -16,6 +16,7 @@ import dev.jdtech.jellyfin.settings.presentation.models.PreferenceIntInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceLongInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSelect
+import dev.jdtech.jellyfin.settings.presentation.models.PreferenceStringInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSwitch
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -532,6 +533,70 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                         )
                     )
             ),
+            // JellySync settings
+            PreferenceGroup(
+                preferences =
+                    listOf(
+                        PreferenceCategory(
+                            nameStringResource = R.string.sync_settings_title,
+                            descriptionStringRes = R.string.sync_settings_description,
+                            iconDrawableId = R.drawable.ic_sync,
+                            supportedDeviceTypes = listOf(DeviceType.PHONE),
+                            onClick = {
+                                viewModelScope.launch {
+                                    eventsChannel.send(
+                                        SettingsEvent.NavigateToSettings(
+                                            intArrayOf(it.nameStringResource)
+                                        )
+                                    )
+                                }
+                            },
+                            nestedPreferenceGroups =
+                                listOf(
+                                    PreferenceGroup(
+                                        preferences =
+                                            listOf(
+                                                PreferenceSwitch(
+                                                    nameStringResource = R.string.sync_enabled,
+                                                    descriptionStringRes = R.string.sync_settings_description,
+                                                    backendPreference = appPreferences.syncEnabled,
+                                                ),
+                                            ),
+                                    ),
+                                    PreferenceGroup(
+                                        nameStringResource = R.string.sync_configuration,
+                                        preferences =
+                                            listOf(
+                                                PreferenceStringInput(
+                                                    nameStringResource = R.string.sync_target_user,
+                                                    descriptionStringRes = R.string.sync_target_user_summary,
+                                                    dependencies = listOf(appPreferences.syncEnabled),
+                                                    backendPreference = appPreferences.syncTargetUser,
+                                                ),
+                                                PreferenceIntInput(
+                                                    nameStringResource = R.string.sync_threshold,
+                                                    descriptionStringRes = R.string.sync_threshold_summary,
+                                                    dependencies = listOf(appPreferences.syncEnabled),
+                                                    backendPreference = appPreferences.syncThreshold,
+                                                ),
+                                                PreferenceIntInput(
+                                                    nameStringResource = R.string.sync_offset,
+                                                    descriptionStringRes = R.string.sync_offset_summary,
+                                                    dependencies = listOf(appPreferences.syncEnabled),
+                                                    backendPreference = appPreferences.syncOffset,
+                                                ),
+                                                PreferenceSwitch(
+                                                    nameStringResource = R.string.sync_auto_pause,
+                                                    descriptionStringRes = R.string.sync_auto_pause_summary,
+                                                    dependencies = listOf(appPreferences.syncEnabled),
+                                                    backendPreference = appPreferences.syncAutoPause,
+                                                ),
+                                            ),
+                                    ),
+                                ),
+                        )
+                    )
+            ),
             PreferenceGroup(
                 preferences =
                     listOf(
@@ -806,6 +871,19 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                         ),
                                                 )
                                             }
+                                            is PreferenceStringInput -> {
+                                                preference.copy(
+                                                    enabled =
+                                                        preference.enabled &&
+                                                            preference.dependencies.all {
+                                                                appPreferences.getValue(it)
+                                                            },
+                                                    value =
+                                                        appPreferences.getValue(
+                                                            preference.backendPreference
+                                                        ),
+                                                )
+                                            }
                                             else -> preference
                                         }
                                     }
@@ -842,6 +920,11 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                             action.preference.value,
                         )
                     is PreferenceLongInput ->
+                        appPreferences.setValue(
+                            action.preference.backendPreference,
+                            action.preference.value,
+                        )
+                    is PreferenceStringInput ->
                         appPreferences.setValue(
                             action.preference.backendPreference,
                             action.preference.value,

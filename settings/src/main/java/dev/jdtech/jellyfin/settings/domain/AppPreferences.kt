@@ -101,6 +101,13 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     // Offline mode
     val offlineMode = Preference("pref_offline_mode", false)
 
+    // JellySync - Sync playback with another user
+    val syncEnabled = Preference("pref_sync_enabled", false)
+    val syncTargetUser = Preference<String?>("pref_sync_target_user", null)
+    val syncThreshold = Preference("pref_sync_threshold", 3) // Seconds
+    val syncOffset = Preference("pref_sync_offset", 0) // Seconds (-10 to +10)
+    val syncAutoPause = Preference("pref_sync_auto_pause", false) // Pause when target stops watching
+
     inline fun <reified T> getValue(preference: Preference<T>): T {
         return try {
             @Suppress("UNCHECKED_CAST")
