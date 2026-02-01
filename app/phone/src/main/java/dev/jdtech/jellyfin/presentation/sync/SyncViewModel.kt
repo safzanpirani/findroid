@@ -125,7 +125,7 @@ class SyncViewModel @Inject constructor(
                         userName = session.userName ?: "Unknown",
                         nowPlaying = nowPlayingText,
                         itemId = nowPlaying.id.toString(),
-                        itemKind = nowPlaying.type?.name ?: "Movie",
+                        itemKind = nowPlaying.type?.serialName ?: "Movie",
                         positionTicks = positionTicks,
                         durationTicks = durationTicks,
                         isPaused = session.playState?.isPaused ?: false,
